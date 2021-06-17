@@ -55,6 +55,7 @@ BinaryFileReader
   public static void
   main(String[] args)
   {
+    System.out.println("hi");
     byte[] data = BinaryFileReader.read_entire_file("file.txt"); 
   }
 }

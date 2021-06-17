@@ -5,5 +5,7 @@
 !.gitignore
 
 !build.bash
+!run.bash
 
-!*.java
+!src/
+!src/**/*.java
