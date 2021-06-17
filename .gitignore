@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: zlib-acknowledgement
+
+*
+
+!.gitignore
+
+!build.bash
+
+!*.java
