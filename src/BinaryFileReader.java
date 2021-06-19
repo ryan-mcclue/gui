@@ -37,7 +37,7 @@ BinaryFileReader
     return ByteOrder.nativeOrder().equals(ByteOrder.LITTLE_ENDIAN);
   }
 
-  private static ByteBuffer
+  public static ByteBuffer
   read_bytes(ByteArrayInputStream stream, int offset, int num_bytes)
   {
     stream.reset();
@@ -53,24 +53,73 @@ BinaryFileReader
     return ByteBuffer.wrap(byte_holder);
   }
 
-  public static <T> T
-  read_val(ByteArrayInputStream stream, Class<T> type, int offset)
+  public static byte 
+  read_byte(ByteArrayInputStream stream, int offset)
   {
-    byte[] byte_holder = null;
-    if (type == Integer.class)
-    {
-      ByteBuffer val = read_bytes(stream, offset, Integer.BYTES);
-      return Integer.valueOf(val.getInt());
-    }
+    return read_bytes(stream, offset, 1).get();
+  }
+
+  public static short 
+  read_short(ByteArrayInputStream stream, int offset)
+  {
+    return read_bytes(stream, offset, 2).getShort();
+  }
+
+  public static int 
+  read_int(ByteArrayInputStream stream, int offset)
+  {
+    return read_bytes(stream, offset, 4).getInt();
+  }
+
+  public static long 
+  read_long(ByteArrayInputStream stream, int offset)
+  {
+    return read_bytes(stream, offset, 8).getLong();
+  }
+
+  public static int
+  swap_int_bytes(int val)
+  {
+    // 0xff maps to 0x000000ff
+    int b0 = val & 0xff; 
+    int b1 = (val >> 8) & 0xff;
+    int b2 = (val >> 16) & 0xff;
+    int b3 = (val >> 24) & 0xff;
+
+    return (b0 << 24) | (b1 << 16) | (b2 << 8) | b3;
   }
 
   public static void
   main(String[] args)
   {
     ByteArrayInputStream data = 
-      BinaryFileReader.read_entire_file("file.bin"); 
-    int num = 
-      BinaryFileReader.read_val(data, Integer.class, 0).intValue();
+      BinaryFileReader.read_entire_file("nl.mo"); 
+
+    boolean is_reversed = false;
+
+    int magic = BinaryFileReader.read_int(data, 0);
+    int target_magic = 0x950412de;
+    int target_magic_reversed = 0xde120495;
+    if (magic == target_magic)
+    {
+      is_reversed = false;
+    }
+    if (magic == target_magic_reversed)
+    {
+      is_reversed = true;
+    }
+
+    int val = swap_int_bytes(0xdeadbeef);
+    String new_val = String.format("0x%08x", val);
+
+    // need to handle endianness
+    int num_strings = BinaryFileReader.read_int(data, 8);
+    //int original_table_offset(12);
+    //int translated_table_offset(16);
+    //int hash_num_entries(20);
+    //int hash_offset(24);
+
+    //byte hash_table = data + hash_offset; 
   }
 }
 
@@ -105,6 +154,6 @@ LocalisationText
 
     //}
 
-    data.close();
+    // data.close();
   }
 }
