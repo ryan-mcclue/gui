@@ -6,7 +6,7 @@ public class
 BinaryFileReader
 {
   public static
-  ByteArrayInputStream read_entire_file(String file_name)
+  byte[] read_entire_file(String file_name)
   {
     InputStream file_stream = null;
     try 
@@ -29,7 +29,7 @@ BinaryFileReader
       Breakpoint.bp(e.getMessage());
     }
     
-    return new ByteArrayInputStream(file_data);
+    return file_data;
   }
 
   public static boolean
@@ -78,6 +78,13 @@ BinaryFileReader
     return read_bytes(stream, offset, 8).getLong();
   }
 
+  public static String
+  read_string(ByteArrayInputStream stream, int offset, int length)
+  {
+    ByteBuffer str_bytes = read_bytes(stream, offset, length);
+    return StandardCharsets.UTF_8.decode(str_bytes).toString();
+  }
+
   // IMPORTANT(Ryan): Most CPUs these days have an instruction for this
   public static int
   swap_int_bytes(int val)
@@ -101,42 +108,95 @@ BinaryFileReader
 
   //  return read_string(mo_data_byte_stream, str_offset, str_length);
   //}
+  
+  //public static String
+  //get_translated_string(LocalisationText loc_text, int index)
+  //{
+  //  int str_length = loc_text.translated_table_offset + 8 * index;
+  //  int str_offset_addr = loc_text.translated_table_offset + 8 * index + 4;
 
+  //  int str_offset = read_int(mo_file_byte_stream, str_offset_addr); 
+
+  //  return read_string(mo_data_byte_stream, str_offset, str_length);
+  //}
+
+  // hashing is a lossy mapping that allows for sparseness.
+  // we go from 2^(large) to 2^(small) to store in array 
+  // a valid hash function is to throw away bits, however what is typical
+  // is to combine bits by analysing patterns of what we expect numbers to
+  // be
+  // of course there will be collisions as going from large to small
+  
+   public long 
+   pjw_hash(String str)
+   {
+     long BitsInUnsignedInt = (long)(4 * 8);
+     long ThreeQuarters     = ((BitsInUnsignedInt  * 3) / 4);
+     long OneEighth         = (BitsInUnsignedInt / 8);
+     long HighBits          = (long)(0xFFFFFFFF) << (BitsInUnsignedInt - OneEighth);
+     long hash              = 0;
+     long test              = 0;
+
+     for(int i = 0; i < str.length(); i++)
+     {
+       hash = (hash << OneEighth) + str.charAt(i);
+
+       if((test = hash & HighBits)  != 0)
+       {
+         hash = (( hash ^ (test >> ThreeQuarters)) & (~HighBits));
+       }
+     }
+
+     return hash;
+   }
+
+  public long
+  pjw_hash_str(String str)
+  {
+    long h_val = 0;
+    for (int str_i = 0; str_i < str.length(); ++str_i)
+    {
+      char c = str.charAt(str_i);
+    }
+
+    return 0;
+  }
+
+  //_i(String str)
+  //{
+  //  int target_index = get_target_index(locale, str);
+  //  return get_translated_str(loc, target_index);
+  //}
 
   public static void
   main(String[] args)
   {
-    // globalLocText = make_localisation_text("data/strings", "de");
-    // fallbackLocText = make_localisation_text("data/strings", "en");
-    // get_string_from_global_loc_text("", "")
+    // globalLocText = make_localisation_text("l10n", "de");
+    // fallbackLocText = make_localisation_text("l10n", "en");
+    // str = i_("hdr_message_4");
 
-    // return byte[] so can copy
-    ByteArrayInputStream data = 
-      BinaryFileReader.read_entire_file("nl.mo"); 
-
-   // ByteArrayInputStream advanced_data =
-   //   new ByteArrayInputStream(data, offset, length);
-   //   data + 10;
-  
-    byte[] val = new byte[4];  
-    ByteBuffer buf = ByteBuffer.wrap(val);
-    String s = StandardCharsets.UTF_8.decode(buf).toString();
+    byte[] mo_file_bytes = BinaryFileReader.read_entire_file("nl.mo"); 
+    ByteArrayInputStream mo_file_data = 
+      new ByteArrayInputStream(mo_file_bytes);
 
     boolean is_reversed = false;
-
-    int magic = BinaryFileReader.read_int(data, 0);
+    int mo_magic = BinaryFileReader.read_int(mo_file_data, 0);
     int target_magic = 0x950412de;
     int target_magic_reversed = 0xde120495;
-    if (magic == target_magic_reversed)
+    if (mo_magic == target_magic_reversed)
     {
       is_reversed = true;
     }
+    if (!is_reversed && mo_magic != target_magic)
+    {
+      Breakpoint.bp("File is not a valid .mo");
+    }
 
-    int num_strings = BinaryFileReader.read_int(data, 8);
-    int original_table_offset = BinaryFileReader.read_int(data, 12);
-    int translated_table_offset = BinaryFileReader.read_int(data, 16);
-    int hash_num_entries = BinaryFileReader.read_int(data, 20);
-    int hash_offset = BinaryFileReader.read_int(data, 24);
+    int num_strings = BinaryFileReader.read_int(mo_file_data, 8);
+    int original_table_offset = BinaryFileReader.read_int(mo_file_data, 12);
+    int translated_table_offset = BinaryFileReader.read_int(mo_file_data, 16);
+    int hash_num_entries = BinaryFileReader.read_int(mo_file_data, 20);
+    int hash_offset = BinaryFileReader.read_int(mo_file_data, 24);
 
     if (is_reversed)
     {
@@ -149,7 +209,12 @@ BinaryFileReader
         BinaryFileReader.swap_int_bytes(hash_num_entries);           
       hash_offset = BinaryFileReader.swap_int_bytes(hash_offset);
     }
-    // byte hash_table = data + hash_offset;
+
+    ByteArrayInputStream hash_table =
+      new ByteArrayInputStream(mo_file_bytes, hash_offset, 
+                               mo_file_bytes.length - hash_offset);
+
+
   }
 }
 
@@ -171,9 +236,6 @@ LocalisationText
   LocalisationText(String folder, String language_name)
   {
     String name = String.format("%s/%s", folder, language_name);
-
-    ByteArrayInputStream data = 
-      BinaryFileReader.read_entire_file(name);
 
     // this.hash_table = (void *)data;
     int target_magic = 0x950412de;
