@@ -32,12 +32,6 @@ BinaryFileReader
     return file_data;
   }
 
-  public static boolean
-  areLittleEndian()
-  {
-    return ByteOrder.nativeOrder().equals(ByteOrder.LITTLE_ENDIAN);
-  }
-
   public static ByteBuffer
   read_bytes(ByteArrayInputStream stream, int offset, int num_bytes)
   {
@@ -61,9 +55,14 @@ BinaryFileReader
   }
 
   public static short 
-  read_short(ByteArrayInputStream stream, int offset)
+  read_short(ByteArrayInputStream stream, int offset, boolean want_reversed) 
   {
-    return read_bytes(stream, offset, 2).getShort();
+    ByteBuffer buf = read_bytes(stream, offset, 2)
+    if (want_reversed)
+    {
+      buf.order(ByteOrder.LITTLE_ENDIAN);
+    }
+    return buf.getShort();
   }
 
   public static int 
@@ -96,6 +95,35 @@ BinaryFileReader
     int b3 = (val >> 24) & 0xff;
 
     return (b0 << 24) | (b1 << 16) | (b2 << 8) | b3;
+  }
+
+  public static int
+  get_target_index(Loc, String s)
+  {
+    int V = pjw_hash(s);
+    int S = Loc.num_hash_entries;
+
+    // probably something to do with the collision handling
+    // of the pjw hash
+    int hash_cursor = V % S;
+    int orig_hash_cursor = hash_cursor;
+    int increment = 1 + (V % (S - 2));
+
+    while (true)
+    {
+      int index = read_int(hash_table, 4 * hash_cursor);
+
+      // empty
+      if index == 0 break;
+
+      index--;
+
+      if get_source_string(loc, s, index).equals(s) return index;
+      hash_cursor += increment;
+      hash_cursor %= S;
+
+      if hash_cursor == orig_hash_cursor break;
+    }
   }
 
   //public static String
@@ -150,18 +178,6 @@ BinaryFileReader
      return hash;
    }
 
-  public long
-  pjw_hash_str(String str)
-  {
-    long h_val = 0;
-    for (int str_i = 0; str_i < str.length(); ++str_i)
-    {
-      char c = str.charAt(str_i);
-    }
-
-    return 0;
-  }
-
   //_i(String str)
   //{
   //  int target_index = get_target_index(locale, str);
@@ -174,23 +190,6 @@ BinaryFileReader
     // globalLocText = make_localisation_text("l10n", "de");
     // fallbackLocText = make_localisation_text("l10n", "en");
     // str = i_("hdr_message_4");
-
-    byte[] mo_file_bytes = BinaryFileReader.read_entire_file("nl.mo"); 
-    ByteArrayInputStream mo_file_data = 
-      new ByteArrayInputStream(mo_file_bytes);
-
-    boolean is_reversed = false;
-    int mo_magic = BinaryFileReader.read_int(mo_file_data, 0);
-    int target_magic = 0x950412de;
-    int target_magic_reversed = 0xde120495;
-    if (mo_magic == target_magic_reversed)
-    {
-      is_reversed = true;
-    }
-    if (!is_reversed && mo_magic != target_magic)
-    {
-      Breakpoint.bp("File is not a valid .mo");
-    }
 
     int num_strings = BinaryFileReader.read_int(mo_file_data, 8);
     int original_table_offset = BinaryFileReader.read_int(mo_file_data, 12);
