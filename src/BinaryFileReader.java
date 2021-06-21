@@ -1,5 +1,6 @@
 import java.io.*;
 import java.nio.*;
+import java.nio.charset.*;
 
 public class
 BinaryFileReader
@@ -77,10 +78,11 @@ BinaryFileReader
     return read_bytes(stream, offset, 8).getLong();
   }
 
+  // IMPORTANT(Ryan): Most CPUs these days have an instruction for this
   public static int
   swap_int_bytes(int val)
   {
-    // 0xff maps to 0x000000ff
+    // NOTE(Ryan): 0xff maps to 0x000000ff
     int b0 = val & 0xff; 
     int b1 = (val >> 8) & 0xff;
     int b2 = (val >> 16) & 0xff;
@@ -89,37 +91,65 @@ BinaryFileReader
     return (b0 << 24) | (b1 << 16) | (b2 << 8) | b3;
   }
 
+  //public static String
+  //get_source_string(LocalisationText loc_text, int index)
+  //{
+  //  int str_length = loc_text.original_table_offset + 8 * index;
+  //  int str_offset_addr = loc_text.original_table_offset + 8 * index + 4;
+
+  //  int str_offset = read_int(mo_file_byte_stream, str_offset_addr); 
+
+  //  return read_string(mo_data_byte_stream, str_offset, str_length);
+  //}
+
+
   public static void
   main(String[] args)
   {
+    // globalLocText = make_localisation_text("data/strings", "de");
+    // fallbackLocText = make_localisation_text("data/strings", "en");
+    // get_string_from_global_loc_text("", "")
+
+    // return byte[] so can copy
     ByteArrayInputStream data = 
       BinaryFileReader.read_entire_file("nl.mo"); 
+
+   // ByteArrayInputStream advanced_data =
+   //   new ByteArrayInputStream(data, offset, length);
+   //   data + 10;
+  
+    byte[] val = new byte[4];  
+    ByteBuffer buf = ByteBuffer.wrap(val);
+    String s = StandardCharsets.UTF_8.decode(buf).toString();
 
     boolean is_reversed = false;
 
     int magic = BinaryFileReader.read_int(data, 0);
     int target_magic = 0x950412de;
     int target_magic_reversed = 0xde120495;
-    if (magic == target_magic)
-    {
-      is_reversed = false;
-    }
     if (magic == target_magic_reversed)
     {
       is_reversed = true;
     }
 
-    int val = swap_int_bytes(0xdeadbeef);
-    String new_val = String.format("0x%08x", val);
-
-    // need to handle endianness
     int num_strings = BinaryFileReader.read_int(data, 8);
-    //int original_table_offset(12);
-    //int translated_table_offset(16);
-    //int hash_num_entries(20);
-    //int hash_offset(24);
+    int original_table_offset = BinaryFileReader.read_int(data, 12);
+    int translated_table_offset = BinaryFileReader.read_int(data, 16);
+    int hash_num_entries = BinaryFileReader.read_int(data, 20);
+    int hash_offset = BinaryFileReader.read_int(data, 24);
 
-    //byte hash_table = data + hash_offset; 
+    if (is_reversed)
+    {
+      num_strings = BinaryFileReader.swap_int_bytes(num_strings);
+      original_table_offset = 
+        BinaryFileReader.swap_int_bytes(original_table_offset);
+      translated_table_offset = 
+        BinaryFileReader.swap_int_bytes(translated_table_offset);
+      hash_num_entries = 
+        BinaryFileReader.swap_int_bytes(hash_num_entries);           
+      hash_offset = BinaryFileReader.swap_int_bytes(hash_offset);
+    }
+    // byte hash_table = data + hash_offset;
   }
 }
 
